@@ -187,6 +187,8 @@
             width: auto;
         }
     </style>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js"></script>
 </head>
 <body>
     <div class="container">
@@ -196,8 +198,9 @@
             <span id="current-week"></span>
             <button onclick="changeWeek(1)">次の週</button>
         </div>
+        <button onclick="openEditModal()">新規イベント追加</button>
         <div class="calendar" id="calendar"></div>
-        <button id="authorize_button" class="signin" onclick="handleAuthClick()">
+        <button id="authorize_button" class="signin" style="visibility: hidden" onclick="handleAuthClick()">
             <svg viewBox="0 0 256 262" preserveAspectRatio="xMidYMid" xmlns="http://www.w3.org/2000/svg">
                 <path d="M255.878 133.451c0-10.734-.871-18.567-2.756-26.69H130.55v48.448h71.947c-1.45 12.04-9.283 30.172-26.69 42.356l-.244 1.622 38.755 30.023 2.685.268c24.659-22.774 38.875-56.282 38.875-96.027" fill="#4285F4"></path>
                 <path d="M130.55 261.1c35.248 0 64.839-11.605 86.453-31.622l-41.196-31.913c-11.024 7.688-25.82 13.055-45.257 13.055-34.523 0-63.824-22.773-74.269-54.25l-1.531.13-40.298 31.187-.527 1.465C35.393 231.798 79.49 261.1 130.55 261.1" fill="#34A853"></path>
@@ -206,8 +209,7 @@
             </svg>
             Googleでログイン
         </button>
-        <button id="signout_button" style="display: none" onclick="handleSignoutClick()">ログアウト</button>
-        <button id="publish_button" style="display: none" onclick="publishChanges()">変更を公開</button>
+        <button id="signout_button" style="visibility: hidden" onclick="handleSignoutClick()">Sign Out</button>
     </div>
 
     <div id="editModal" class="modal">
@@ -227,7 +229,6 @@
     <script>
         // Google Sheets APIの設定
         const CLIENT_ID = '325411359670-684gb79qnt6r044c69hfptonhdlnlqoi.apps.googleusercontent.com';
-        const API_KEY = 'AIzaSyBOti4mM-6x9WDnZIjIeyEU21OpBXqWBgw';
         const SPREADSHEET_ID = '16Hx-hUQWafVJgTMfwsabXmDi8jFl526aJEfdfPoqgTg';
         const RANGE = 'シート1!A:E';  // データが保存されている範囲
 
@@ -244,15 +245,12 @@
         let gapiInited = false;
         let gisInited = false;
 
-        let isLoggedIn = false;
-
         function gapiLoaded() {
             gapi.load('client', initializeGapiClient);
         }
 
         async function initializeGapiClient() {
             await gapi.client.init({
-                apiKey: API_KEY,
                 discoveryDocs: ["https://sheets.googleapis.com/$discovery/rest?version=v4"],
             });
             gapiInited = true;
@@ -271,7 +269,7 @@
 
         function maybeEnableButtons() {
             if (gapiInited && gisInited) {
-                document.getElementById('authorize_button').style.display = 'inline-block';
+                document.getElementById('authorize_button').style.visibility = 'visible';
             }
         }
 
@@ -280,11 +278,8 @@
                 if (resp.error !== undefined) {
                     throw (resp);
                 }
-                document.getElementById('signout_button').style.display = 'inline-block';
-                document.getElementById('publish_button').style.display = 'inline-block';
-                document.getElementById('authorize_button').innerText = 'Refresh';
-                isLoggedIn = true;
                 await loadEvents();
+                document.getElementById('authorize_button').innerText = 'Refresh';
             };
 
             if (gapi.client.getToken() === null) {
@@ -299,25 +294,18 @@
             if (token !== null) {
                 google.accounts.oauth2.revoke(token.access_token);
                 gapi.client.setToken('');
-                document.getElementById('authorize_button').innerText = 'Googleでログイン';
-                document.getElementById('signout_button').style.display = 'none';
-                document.getElementById('publish_button').style.display = 'none';
-                isLoggedIn = false;
-                loadEvents(); // 公開データを再読み込み
+                document.getElementById('authorize_button').innerText = 'Authorize';
             }
-        }
-
-        // 初期化時にイベントを読み込む
-        window.onload = function() {
-            loadEvents();
         }
 
         async function loadEvents() {
             try {
-                const response = await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SPREADSHEET_ID + '/values/' + RANGE + '?key=' + API_KEY);
-                const data = await response.json();
-                console.log('イベントの読み込みが成功しました', data);
-                const values = data.values || [];
+                const response = await gapi.client.sheets.spreadsheets.values.get({
+                    spreadsheetId: SPREADSHEET_ID,
+                    range: RANGE
+                });
+                console.log('イベントの読み込みが成功しました', response);
+                const values = response.result.values || [];
                 events = values.map((row, index) => ({
                     id: index.toString(),
                     date: row[0] || '',
@@ -397,16 +385,20 @@
         function createEventElement(event) {
             const eventElement = document.createElement('div');
             eventElement.className = 'lab-event';
-            let content = `
+            eventElement.innerHTML = `
                 <span class="event-time">${event.startTime}-${event.endTime}</span> ${event.content}
                 <div class="participants">
-                    参加者: ${event.participants.join(', ')}
+                    参加者: ${event.participants.map(p => `
+                        <span>${p} 
+                            <button class="delete-participant" onclick="confirmDeleteParticipant('${event.id}', '${p}')">❌</button>
+                        </span>`).join(', ')}
                 </div>
+                <div class="add-participant">
+                    <input type="text" placeholder="ニックネーム">
+                    <button onclick="addParticipant(this, '${event.id}')">参加</button>
+                </div>
+                <button class="edit-button" onclick="openEditModal('${event.id}')">編集</button>
             `;
-            if (isLoggedIn) {
-                content += `<button onclick="openEditModal('${event.id}')">編集</button>`;
-            }
-            eventElement.innerHTML = content;
             return eventElement;
         }
 
@@ -493,6 +485,7 @@
                 editingEvent.startTime = startTime;
                 editingEvent.endTime = endTime;
                 editingEvent.content = content;
+                saveEvent(editingEvent);
             } else {
                 const newEvent = {
                     id: Date.now().toString(),
@@ -502,37 +495,12 @@
                     content: content,
                     participants: []
                 };
-                events.push(newEvent);
+                saveEvent(newEvent);
             }
 
             renderCalendar();
             modal.style.display = "none";
         };
-
-        async function publishChanges() {
-            try {
-                const values = events.map(event => [
-                    event.date,
-                    event.startTime,
-                    event.endTime,
-                    event.content,
-                    event.participants.join(',')
-                ]);
-
-                await gapi.client.sheets.spreadsheets.values.update({
-                    spreadsheetId: SPREADSHEET_ID,
-                    range: RANGE,
-                    valueInputOption: 'USER_ENTERED',
-                    resource: { values: values }
-                });
-
-                alert('変更が公開されました');
-                loadEvents(); // 公開データを再読み込み
-            } catch (err) {
-                console.error('公開中にエラーが発生しました', err);
-                alert('公開中にエラーが発生しました。もう一度お試しください。');
-            }
-        }
 
         span.onclick = function() {
             modal.style.display = "none";
@@ -553,6 +521,9 @@
                 }
             }
         }
+
+        // Google Sheets APIの初期化
+        gapi.load('client', gapiLoaded);
     </script>
     <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
     <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
