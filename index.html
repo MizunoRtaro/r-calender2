@@ -189,6 +189,12 @@
     </style>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js"></script>
+    <script>
+        window.ENV = {
+            CLIENT_ID: '{{CLIENT_ID}}',
+            SPREADSHEET_ID: '{{SPREADSHEET_ID}}'
+        };
+    </script>
 </head>
 <body>
     <div class="container">
@@ -228,8 +234,8 @@
 
     <script>
         // Google Sheets APIの設定
-        const CLIENT_ID = process.env.CLIENT_ID;
-        const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+        const CLIENT_ID = window.ENV.CLIENT_ID;
+        const SPREADSHEET_ID = window.ENV.SPREADSHEET_ID;
         const RANGE = 'シート1!A:E';  // データが保存されている範囲
 
         let currentWeekStart = new Date();
