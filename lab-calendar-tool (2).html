@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rクリエイティブラボ カレンダー</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-image: url('back.png');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #ff69b4;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        .calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .day {
+            background-color: #fff;
+            border-radius: 10px;
+            padding: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            min-height: 150px;
+        }
+        .day-header {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #4169e1;
+        }
+        .date {
+            font-size: 0.9em;
+            color: #666;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        .lab-event {
+            background-color: #ffd700;
+            border-radius: 5px;
+            padding: 5px;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+        .add-participant {
+            margin-top: 5px;
+        }
+        input[type="text"], input[type="time"], input[type="date"] {
+            width: calc(100% - 10px);
+            padding: 5px;
+            margin-bottom: 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        button {
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .participants {
+            font-size: 0.8em;
+            margin-top: 5px;
+        }
+        .edit-button {
+            background-color: #ffa500;
+            margin-right: 5px;
+        }
+        .edit-button:hover {
+            background-color: #ff8c00;
+        }
+        .week-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 10px;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        @media (max-width: 768px) {
+            .calendar {
+                grid-template-columns: repeat(1, 1fr);
+            }
+            .day {
+                min-height: auto;
+            }
+        }
+        .delete-participant {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            font-size: 0.8em;
+            color: #ff0000;
+        }
+        .delete-participant:hover {
+            color: #cc0000;
+        }
+        .signin {
+            float: right;
+            max-width: 320px;
+            display: inline-flex;
+            padding: 0.5rem 1.4rem;
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+            font-weight: 700;
+            text-align: center;
+            font-family: "Montserrat", sans-serif;
+            vertical-align: middle;
+            align-items: center;
+            border-radius: 0.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            gap: 0.75rem;
+            color: #c4d2dc;
+            background-color: #19242b;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0, 0.87, 0.12, 1);
+        }
+
+        .signin:hover {
+            transform: scale(1.025);
+        }
+
+        .signin:active {
+            transform: scale(0.975);
+        }
+
+        .signin svg {
+            height: 24px;
+            width: auto;
+        }
+    </style>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>🌈 Rクリエイティブラボ カレンダー 🌈</h1>
+        <div class="week-nav">
+            <button onclick="changeWeek(-1)">前の週</button>
+            <span id="current-week"></span>
+            <button onclick="changeWeek(1)">次の週</button>
+        </div>
+        <button onclick="openEditModal()">新規イベント追加</button>
+        <div class="calendar" id="calendar"></div>
+        <button id="authorize_button" class="signin" style="visibility: hidden" onclick="handleAuthClick()">
+            <svg viewBox="0 0 256 262" preserveAspectRatio="xMidYMid" xmlns="http://www.w3.org/2000/svg">
+                <path d="M255.878 133.451c0-10.734-.871-18.567-2.756-26.69H130.55v48.448h71.947c-1.45 12.04-9.283 30.172-26.69 42.356l-.244 1.622 38.755 30.023 2.685.268c24.659-22.774 38.875-56.282 38.875-96.027" fill="#4285F4"></path>
+                <path d="M130.55 261.1c35.248 0 64.839-11.605 86.453-31.622l-41.196-31.913c-11.024 7.688-25.82 13.055-45.257 13.055-34.523 0-63.824-22.773-74.269-54.25l-1.531.13-40.298 31.187-.527 1.465C35.393 231.798 79.49 261.1 130.55 261.1" fill="#34A853"></path>
+                <path d="M56.281 156.37c-2.756-8.123-4.351-16.827-4.351-25.82 0-8.994 1.595-17.697 4.206-25.82l-.073-1.73L15.26 71.312l-1.335.635C5.077 89.644 0 109.517 0 130.55s5.077 40.905 13.925 58.602l42.356-32.782" fill="#FBBC05"></path>
+                <path d="M130.55 50.479c24.514 0 41.05 10.589 50.479 19.438l36.844-35.974C195.245 12.91 165.798 0 130.55 0 79.49 0 35.393 29.301 13.925 71.947l42.211 32.783c10.59-31.477 39.891-54.251 74.414-54.251" fill="#EB4335"></path>
+            </svg>
+            Googleでログイン
+        </button>
+        <button id="signout_button" style="visibility: hidden" onclick="handleSignoutClick()">Sign Out</button>
+    </div>
+
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>ラボイベントの編集</h2>
+            <form id="editForm">
+                <input type="date" id="editDate" required>
+                <input type="time" id="editStartTime" required>
+                <input type="time" id="editEndTime" required>
+                <input type="text" id="editContent" placeholder="ラボの内容" required>
+                <button type="submit">保存</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Google Sheets APIの設定
+        const CLIENT_ID = process.env.NEXT_PUBLIC_CLIENT_ID;
+        const SPREADSHEET_ID = process.env.NEXT_PUBLIC_SPREADSHEET_ID;
+        const RANGE = 'シート1!A:E';  // データが保存されている範囲
+
+        let currentWeekStart = new Date();
+        currentWeekStart.setHours(0, 0, 0, 0);
+        currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay());
+
+        const modal = document.getElementById("editModal");
+        const span = document.getElementsByClassName("close")[0];
+        let editingEvent = null;
+        let events = [];
+
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+
+        function gapiLoaded() {
+            gapi.load('client', initializeGapiClient);
+        }
+
+        async function initializeGapiClient() {
+            await gapi.client.init({
+                discoveryDocs: ["https://sheets.googleapis.com/$discovery/rest?version=v4"],
+            });
+            gapiInited = true;
+            maybeEnableButtons();
+        }
+
+        function gisLoaded() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: "https://www.googleapis.com/auth/spreadsheets",
+                callback: '', // defined later
+            });
+            gisInited = true;
+            maybeEnableButtons();
+        }
+
+        function maybeEnableButtons() {
+            if (gapiInited && gisInited) {
+                document.getElementById('authorize_button').style.visibility = 'visible';
+            }
+        }
+
+        function handleAuthClick() {
+            tokenClient.callback = async (resp) => {
+                if (resp.error !== undefined) {
+                    throw (resp);
+                }
+                await loadEvents();
+                document.getElementById('authorize_button').innerText = 'Refresh';
+            };
+
+            if (gapi.client.getToken() === null) {
+                tokenClient.requestAccessToken({prompt: 'consent'});
+            } else {
+                tokenClient.requestAccessToken({prompt: ''});
+            }
+        }
+
+        function handleSignoutClick() {
+            const token = gapi.client.getToken();
+            if (token !== null) {
+                google.accounts.oauth2.revoke(token.access_token);
+                gapi.client.setToken('');
+                document.getElementById('authorize_button').innerText = 'Authorize';
+            }
+        }
+
+        async function loadEvents() {
+            try {
+                const response = await gapi.client.sheets.spreadsheets.values.get({
+                    spreadsheetId: SPREADSHEET_ID,
+                    range: RANGE
+                });
+                console.log('イベントの読み込みが成功しました', response);
+                const values = response.result.values || [];
+                events = values.map((row, index) => ({
+                    id: index.toString(),
+                    date: row[0] || '',
+                    startTime: row[1] || '',
+                    endTime: row[2] || '',
+                    content: row[3] || '',
+                    participants: row[4] ? row[4].split(',') : []
+                }));
+                renderCalendar();
+            } catch (err) {
+                console.error('イベントの読み込み中にエラーが発生しました', err);
+                alert('イベントの読み込み中にエラーが発生しました。ページを再読み込みしてください。');
+            }
+        }
+
+        async function saveEvent(event) {
+            try {
+                console.log('イベントの保存を開始します', event);
+                const values = [
+                    [event.date, event.startTime, event.endTime, event.content, event.participants.join(',')]
+                ];
+                const response = await gapi.client.sheets.spreadsheets.values.append({
+                    spreadsheetId: SPREADSHEET_ID,
+                    range: RANGE,
+                    valueInputOption: 'USER_ENTERED',
+                    resource: {
+                        values: values
+                    }
+                });
+                console.log('イベントが保存されました', response);
+                await loadEvents();
+            } catch (err) {
+                console.error('イベントの保存中にエラーが発生しました', err);
+                console.error('エラーの詳細:', err.result.error.message);
+                alert('イベントの保存中にエラーが発生しました。もう一度お試しください。');
+            }
+        }
+
+        function renderCalendar() {
+            const calendar = document.getElementById('calendar');
+            calendar.innerHTML = '';
+            const weekDays = ['日', '月', '火', '水', '木', '金', '土'];
+            
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(currentWeekStart);
+                date.setDate(date.getDate() + i);
+                
+                const dayElement = document.createElement('div');
+                dayElement.className = 'day';
+                dayElement.innerHTML = `
+                    <div class="day-header">${weekDays[i]}曜日</div>
+                    <div class="date">${formatDate(date)}</div>
+                `;
+                
+                const dayEvents = events.filter(event => isSameDay(new Date(event.date), date));
+                dayEvents.forEach(event => {
+                    const eventElement = createEventElement(event);
+                    dayElement.appendChild(eventElement);
+                });
+                
+                calendar.appendChild(dayElement);
+            }
+
+            updateWeekDisplay();
+        }
+
+        function formatDate(date) {
+            return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+        }
+
+        function isSameDay(date1, date2) {
+            return date1.getFullYear() === date2.getFullYear() &&
+                   date1.getMonth() === date2.getMonth() &&
+                   date1.getDate() === date2.getDate();
+        }
+
+        function createEventElement(event) {
+            const eventElement = document.createElement('div');
+            eventElement.className = 'lab-event';
+            eventElement.innerHTML = `
+                <span class="event-time">${event.startTime}-${event.endTime}</span> ${event.content}
+                <div class="participants">
+                    参加者: ${event.participants.map(p => `
+                        <span>${p} 
+                            <button class="delete-participant" onclick="confirmDeleteParticipant('${event.id}', '${p}')">❌</button>
+                        </span>`).join(', ')}
+                </div>
+                <div class="add-participant">
+                    <input type="text" placeholder="ニックネーム">
+                    <button onclick="addParticipant(this, '${event.id}')">参加</button>
+                </div>
+                <button class="edit-button" onclick="openEditModal('${event.id}')">編集</button>
+            `;
+            return eventElement;
+        }
+
+        function updateWeekDisplay() {
+            const endDate = new Date(currentWeekStart);
+            endDate.setDate(endDate.getDate() + 6);
+            document.getElementById('current-week').textContent = 
+                `${formatDate(currentWeekStart)} - ${formatDate(endDate)}`;
+        }
+
+        function changeWeek(direction) {
+            currentWeekStart.setDate(currentWeekStart.getDate() + 7 * direction);
+            renderCalendar();
+        }
+
+        function addParticipant(button, eventId) {
+            const input = button.previousElementSibling;
+            const nickname = input.value.trim();
+            if (nickname) {
+                const event = events.find(e => e.id === eventId);
+                if (event) {
+                    event.participants.push(nickname);
+                    updateEvent(event);  // 変更をGoogle Sheetsに保存し、カレンダーを再描画
+                }
+                input.value = '';
+            }
+        }
+
+        async function updateEvent(event) {
+            try {
+                console.log('イベントの更新を開始します', event);
+                const values = [
+                    [event.date, event.startTime, event.endTime, event.content, event.participants.join(',')]
+                ];
+                const response = await gapi.client.sheets.spreadsheets.values.update({
+                    spreadsheetId: SPREADSHEET_ID,
+                    range: `シート1!A${parseInt(event.id) + 2}:E${parseInt(event.id) + 2}`,
+                    valueInputOption: 'USER_ENTERED',
+                    resource: {
+                        values: values
+                    }
+                });
+                console.log('イベントが更新されました', response);
+                // イベントを直接更新し、loadEvents()を呼び出さない
+                const index = events.findIndex(e => e.id === event.id);
+                if (index !== -1) {
+                    events[index] = event;
+                }
+                renderCalendar();  // カレンダーを再描画
+            } catch (err) {
+                console.error('イベントの更新中にエラーが発生しました', err);
+                console.error('エラーの詳細:', err.result.error.message);
+                alert('イベントの更新中にエラーが発生しました。もう一度お試しください。');
+            }
+        }
+
+        function openEditModal(eventId = null) {
+            if (eventId) {
+                editingEvent = events.find(e => e.id === eventId);
+                document.getElementById('editDate').value = editingEvent.date;
+                document.getElementById('editStartTime').value = editingEvent.startTime;
+                document.getElementById('editEndTime').value = editingEvent.endTime;
+                document.getElementById('editContent').value = editingEvent.content;
+            } else {
+                editingEvent = null;
+                const today = new Date();
+                document.getElementById('editDate').value = today.toISOString().split('T')[0];
+                document.getElementById('editStartTime').value = '';
+                document.getElementById('editEndTime').value = '';
+                document.getElementById('editContent').value = '';
+            }
+            modal.style.display = "block";
+        }
+
+        document.getElementById('editForm').onsubmit = function(e) {
+            e.preventDefault();
+            const date = document.getElementById('editDate').value;
+            const startTime = document.getElementById('editStartTime').value;
+            const endTime = document.getElementById('editEndTime').value;
+            const content = document.getElementById('editContent').value;
+
+            if (editingEvent) {
+                editingEvent.date = date;
+                editingEvent.startTime = startTime;
+                editingEvent.endTime = endTime;
+                editingEvent.content = content;
+                saveEvent(editingEvent);
+            } else {
+                const newEvent = {
+                    id: Date.now().toString(),
+                    date: date,
+                    startTime: startTime,
+                    endTime: endTime,
+                    content: content,
+                    participants: []
+                };
+                saveEvent(newEvent);
+            }
+
+            renderCalendar();
+            modal.style.display = "none";
+        };
+
+        span.onclick = function() {
+            modal.style.display = "none";
+        }
+
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+
+        function confirmDeleteParticipant(eventId, participant) {
+            if (confirm(`${participant}さんを参加者リストから削除してもよろしいですか`)) {
+                const event = events.find(e => e.id === eventId);
+                if (event) {
+                    event.participants = event.participants.filter(p => p !== participant);
+                    updateEvent(event);  // 変更をGoogle Sheetsに保存
+                }
+            }
+        }
+
+        // Google Sheets APIの初期化
+        gapi.load('client', gapiLoaded);
+    </script>
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+</body>
+</html>
