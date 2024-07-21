@@ -227,9 +227,31 @@
     </div>
 
     <script>
+        let CLIENT_ID;
+        let SPREADSHEET_ID;
+
+        async function fetchConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                CLIENT_ID = config.CLIENT_ID;
+                SPREADSHEET_ID = config.SPREADSHEET_ID;
+                console.log('設定を取得しました:', config);
+                initializeGoogleAPI();
+            } catch (error) {
+                console.error('設定の取得に失敗しました:', error);
+            }
+        }
+
+        function initializeGoogleAPI() {
+            // ここに既存の Google API 初期化コードを移動
+            gapi.load('client', gapiLoaded);
+        }
+
+        // 設定を取得してから Google API を初期化
+        fetchConfig();
+
         // Google Sheets APIの設定
-        const CLIENT_ID = '325411359670-684gb79qnt6r044c69hfptonhdlnlqoi.apps.googleusercontent.com';
-        const SPREADSHEET_ID = '16Hx-hUQWafVJgTMfwsabXmDi8jFl526aJEfdfPoqgTg';
         const RANGE = 'シート1!A:E';  // データが保存されている範囲
 
         let currentWeekStart = new Date();
