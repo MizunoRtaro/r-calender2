@@ -421,7 +421,7 @@
                 const event = events.find(e => e.id === eventId);
                 if (event) {
                     event.participants.push(nickname);
-                    updateEvent(event);  // 変更をGoogle Sheetsに保存し、カレンダーを再描画
+                    updateEvent(event);  // 変更をGoogle Sheetsに保存、カレンダーを再描画
                 }
                 input.value = '';
             }
@@ -513,7 +513,7 @@
         }
 
         function confirmDeleteParticipant(eventId, participant) {
-            if (confirm(`${participant}さんを参加者リストから削除してもよろしいですか`)) {
+            if (confirm(`${participant}さんを参加者リストから削除してもよろしですか`)) {
                 const event = events.find(e => e.id === eventId);
                 if (event) {
                     event.participants = event.participants.filter(p => p !== participant);
