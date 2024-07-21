@@ -228,8 +228,8 @@
 
     <script>
         // Google Sheets APIの設定
-        const CLIENT_ID = '%%CLIENT_ID%%';
-        const SPREADSHEET_ID = '%%SPREADSHEET_ID%%';
+        const CLIENT_ID = process.env.CLIENT_ID;
+        const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
         const RANGE = 'シート1!A:E';  // データが保存されている範囲
 
         let currentWeekStart = new Date();
