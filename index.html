@@ -207,6 +207,7 @@
             Googleでログイン
         </button>
         <button id="signout_button" style="display: none" onclick="handleSignoutClick()">ログアウト</button>
+        <button id="publish_button" style="display: none" onclick="publishChanges()">変更を公開</button>
     </div>
 
     <div id="editModal" class="modal">
@@ -243,6 +244,8 @@
         let gapiInited = false;
         let gisInited = false;
 
+        let isLoggedIn = false;
+
         function gapiLoaded() {
             gapi.load('client', initializeGapiClient);
         }
@@ -278,7 +281,9 @@
                     throw (resp);
                 }
                 document.getElementById('signout_button').style.display = 'inline-block';
+                document.getElementById('publish_button').style.display = 'inline-block';
                 document.getElementById('authorize_button').innerText = 'Refresh';
+                isLoggedIn = true;
                 await loadEvents();
             };
 
@@ -296,6 +301,9 @@
                 gapi.client.setToken('');
                 document.getElementById('authorize_button').innerText = 'Googleでログイン';
                 document.getElementById('signout_button').style.display = 'none';
+                document.getElementById('publish_button').style.display = 'none';
+                isLoggedIn = false;
+                loadEvents(); // 公開データを再読み込み
             }
         }
 
@@ -389,12 +397,16 @@
         function createEventElement(event) {
             const eventElement = document.createElement('div');
             eventElement.className = 'lab-event';
-            eventElement.innerHTML = `
+            let content = `
                 <span class="event-time">${event.startTime}-${event.endTime}</span> ${event.content}
                 <div class="participants">
                     参加者: ${event.participants.join(', ')}
                 </div>
             `;
+            if (isLoggedIn) {
+                content += `<button onclick="openEditModal('${event.id}')">編集</button>`;
+            }
+            eventElement.innerHTML = content;
             return eventElement;
         }
 
@@ -481,7 +493,6 @@
                 editingEvent.startTime = startTime;
                 editingEvent.endTime = endTime;
                 editingEvent.content = content;
-                saveEvent(editingEvent);
             } else {
                 const newEvent = {
                     id: Date.now().toString(),
@@ -491,12 +502,37 @@
                     content: content,
                     participants: []
                 };
-                saveEvent(newEvent);
+                events.push(newEvent);
             }
 
             renderCalendar();
             modal.style.display = "none";
         };
+
+        async function publishChanges() {
+            try {
+                const values = events.map(event => [
+                    event.date,
+                    event.startTime,
+                    event.endTime,
+                    event.content,
+                    event.participants.join(',')
+                ]);
+
+                await gapi.client.sheets.spreadsheets.values.update({
+                    spreadsheetId: SPREADSHEET_ID,
+                    range: RANGE,
+                    valueInputOption: 'USER_ENTERED',
+                    resource: { values: values }
+                });
+
+                alert('変更が公開されました');
+                loadEvents(); // 公開データを再読み込み
+            } catch (err) {
+                console.error('公開中にエラーが発生しました', err);
+                alert('公開中にエラーが発生しました。もう一度お試しください。');
+            }
+        }
 
         span.onclick = function() {
             modal.style.display = "none";
