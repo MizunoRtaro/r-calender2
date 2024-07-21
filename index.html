@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin-allow-popups">
     <title>Rクリエイティブラボ カレンダー</title>
     <style>
         body {
@@ -228,8 +229,8 @@
 
     <script>
         // Google Sheets APIの設定
-        const CLIENT_ID = '{{ YOUR_CLIENT_ID }}';  // あなたのクライアントIDに置き換えてください
-        const SPREADSHEET_ID = '{{ YOUR_SPREADSHEET_ID }}';  // あなたのスプレッドシートIDに置き換えてください
+        const CLIENT_ID = '{{ NEXT_PUBLIC_CLIENT_ID }}';
+        const SPREADSHEET_ID = '{{ NEXT_PUBLIC_SPREADSHEET_ID }}';
         const RANGE = 'シート1!A:E';  // データが保存されている範囲
         let currentWeekStart = new Date();
         currentWeekStart.setHours(0, 0, 0, 0);
