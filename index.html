@@ -190,10 +190,21 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js"></script>
     <script>
-        window.ENV = {
-            CLIENT_ID: '{{CLIENT_ID}}',
-            SPREADSHEET_ID: '{{SPREADSHEET_ID}}'
-        };
+        async function fetchConfig() {
+            const response = await fetch('/api/config');
+            const config = await response.json();
+            window.ENV = config;
+            initializeApp(); // 設定を取得した後にアプリを初期化する関数
+        }
+
+        function initializeApp() {
+            const CLIENT_ID = window.ENV.CLIENT_ID;
+            const SPREADSHEET_ID = window.ENV.SPREADSHEET_ID;
+            // ここに残りのJavaScriptコードを移動
+            // ...
+        }
+
+        fetchConfig(); // 設定を取得し、アプリを初期化
     </script>
 </head>
 <body>
