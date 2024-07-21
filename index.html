@@ -189,39 +189,10 @@
     </style>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js"></script>
-    <script>
-        let CLIENT_ID;
-        let SPREADSHEET_ID;
-
-        async function fetchConfig() {
-          try {
-            const response = await fetch('/api/config');
-            const config = await response.json();
-            CLIENT_ID = config.CLIENT_ID;
-            SPREADSHEET_ID = config.SPREADSHEET_ID;
-            initializeGoogleSignIn();
-          } catch (error) {
-            console.error('設定の取得に失敗しました:', error);
-          }
-        }
-
-        function initializeGoogleSignIn() {
-          const gIdOnload = document.getElementById('g_id_onload');
-          gIdOnload.setAttribute('data-client_id', CLIENT_ID);
-        }
-
-        function handleCredentialResponse(response) {
-          console.log("Encoded JWT ID token: " + response.credential);
-          // ここでトークンを使用して必要な処理を行います
-        }
-
-        // 設定を取得し、アプリを初期化
-        fetchConfig();
-    </script>
 </head>
 <body>
     <div class="container">
-        <h1>🌈 R creative lab カレンダー 🌈</h1>
+        <h1>🌈 Rクリエイティブラボ カレンダー 🌈</h1>
         <div class="week-nav">
             <button onclick="changeWeek(-1)">前の週</button>
             <span id="current-week"></span>
@@ -229,11 +200,16 @@
         </div>
         <button onclick="openEditModal()">新規イベント追加</button>
         <div class="calendar" id="calendar"></div>
-        <div id="g_id_onload"
-             data-client_id="YOUR_CLIENT_ID"
-             data-callback="handleCredentialResponse">
-        </div>
-        <div class="g_id_signin" data-type="standard"></div>
+        <button id="authorize_button" class="signin" style="visibility: hidden" onclick="handleAuthClick()">
+            <svg viewBox="0 0 256 262" preserveAspectRatio="xMidYMid" xmlns="http://www.w3.org/2000/svg">
+                <path d="M255.878 133.451c0-10.734-.871-18.567-2.756-26.69H130.55v48.448h71.947c-1.45 12.04-9.283 30.172-26.69 42.356l-.244 1.622 38.755 30.023 2.685.268c24.659-22.774 38.875-56.282 38.875-96.027" fill="#4285F4"></path>
+                <path d="M130.55 261.1c35.248 0 64.839-11.605 86.453-31.622l-41.196-31.913c-11.024 7.688-25.82 13.055-45.257 13.055-34.523 0-63.824-22.773-74.269-54.25l-1.531.13-40.298 31.187-.527 1.465C35.393 231.798 79.49 261.1 130.55 261.1" fill="#34A853"></path>
+                <path d="M56.281 156.37c-2.756-8.123-4.351-16.827-4.351-25.82 0-8.994 1.595-17.697 4.206-25.82l-.073-1.73L15.26 71.312l-1.335.635C5.077 89.644 0 109.517 0 130.55s5.077 40.905 13.925 58.602l42.356-32.782" fill="#FBBC05"></path>
+                <path d="M130.55 50.479c24.514 0 41.05 10.589 50.479 19.438l36.844-35.974C195.245 12.91 165.798 0 130.55 0 79.49 0 35.393 29.301 13.925 71.947l42.211 32.783c10.59-31.477 39.891-54.251 74.414-54.251" fill="#EB4335"></path>
+            </svg>
+            Googleでログイン
+        </button>
+        <button id="signout_button" style="visibility: hidden" onclick="handleSignoutClick()">Sign Out</button>
     </div>
 
     <div id="editModal" class="modal">
@@ -252,6 +228,8 @@
 
     <script>
         // Google Sheets APIの設定
+        const CLIENT_ID = '325411359670-684gb79qnt6r044c69hfptonhdlnlqoi.apps.googleusercontent.com';
+        const SPREADSHEET_ID = '16Hx-hUQWafVJgTMfwsabXmDi8jFl526aJEfdfPoqgTg';
         const RANGE = 'シート1!A:E';  // データが保存されている範囲
 
         let currentWeekStart = new Date();
@@ -262,6 +240,66 @@
         const span = document.getElementsByClassName("close")[0];
         let editingEvent = null;
         let events = [];
+
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+
+        function gapiLoaded() {
+            gapi.load('client', initializeGapiClient);
+        }
+
+        async function initializeGapiClient() {
+            await gapi.client.init({
+                discoveryDocs: ["https://sheets.googleapis.com/$discovery/rest?version=v4"],
+            });
+            gapiInited = true;
+            maybeEnableButtons();
+        }
+
+        function gisLoaded() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: "https://www.googleapis.com/auth/spreadsheets",
+                callback: '', // defined later
+            });
+            gisInited = true;
+            maybeEnableButtons();
+        }
+
+        function maybeEnableButtons() {
+            if (gapiInited && gisInited) {
+                document.getElementById('authorize_button').style.visibility = 'visible';
+            }
+        }
+
+        function handleAuthClick() {
+            tokenClient.callback = async (resp) => {
+                if (resp.error !== undefined) {
+                    throw (resp);
+                }
+                await loadEvents();
+                document.getElementById('authorize_button').innerText = 'Refresh';
+                document.getElementById('signout_button').style.visibility = 'visible';
+            };
+
+            if (gapi.client.getToken() === null) {
+                tokenClient.requestAccessToken({prompt: 'consent'});
+            } else {
+                tokenClient.requestAccessToken({prompt: ''});
+            }
+        }
+
+        function handleSignoutClick() {
+            const token = gapi.client.getToken();
+            if (token !== null) {
+                google.accounts.oauth2.revoke(token.access_token);
+                gapi.client.setToken('');
+                document.getElementById('authorize_button').innerText = 'Googleでログイン';
+                document.getElementById('signout_button').style.visibility = 'hidden';
+                // カレンダーをクリアするなど、必要な処理を追加
+            }
+        }
 
         async function loadEvents() {
             try {
@@ -386,7 +424,7 @@
                 const event = events.find(e => e.id === eventId);
                 if (event) {
                     event.participants.push(nickname);
-                    updateEvent(event);  // 変更をGoogle Sheetsに保存、カレンダーを再描画
+                    updateEvent(event);  // 変更をGoogle Sheetsに保存し、カレンダーを再描画
                 }
                 input.value = '';
             }
@@ -478,7 +516,7 @@
         }
 
         function confirmDeleteParticipant(eventId, participant) {
-            if (confirm(`${participant}さんを参加者リストから削除してもよろしですか`)) {
+            if (confirm(`${participant}さんを参加者リストから削除してもよろしいですか`)) {
                 const event = events.find(e => e.id === eventId);
                 if (event) {
                     event.participants = event.participants.filter(p => p !== participant);
@@ -486,8 +524,11 @@
                 }
             }
         }
+
+        // Google Sheets APIの初期化
+        gapi.load('client', gapiLoaded);
     </script>
-    <script async defer src="https://apis.google.com/js/api.js"></script>
-    <script async defer src="https://accounts.google.com/gsi/client"></script>
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
 </body>
 </html>
