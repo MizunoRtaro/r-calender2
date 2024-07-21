@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        // Google Sheets APIの設定
+        // Google Sheets APIの設��
         const CLIENT_ID = process.env.NEXT_PUBLIC_CLIENT_ID;
         const SPREADSHEET_ID = process.env.NEXT_PUBLIC_SPREADSHEET_ID;
         const RANGE = 'シート1!A:E';  // データが保存されている範囲
@@ -258,11 +258,6 @@
         }
 
         function gisLoaded() {
-            tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: CLIENT_ID,
-                scope: "https://www.googleapis.com/auth/spreadsheets",
-                callback: '', // defined later
-            });
             gisInited = true;
             maybeEnableButtons();
         }
@@ -270,10 +265,20 @@
         function maybeEnableButtons() {
             if (gapiInited && gisInited) {
                 document.getElementById('authorize_button').style.display = 'inline-block';
+                // tokenClientの初期化をここに移動
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: CLIENT_ID,
+                    scope: "https://www.googleapis.com/auth/spreadsheets",
+                    callback: '', // 後で定義します
+                });
             }
         }
 
         function handleAuthClick() {
+            if (!tokenClient) {
+                console.error('tokenClient is not initialized');
+                return;
+            }
             tokenClient.callback = async (resp) => {
                 if (resp.error !== undefined) {
                     throw (resp);
