@@ -232,6 +232,7 @@
         const CLIENT_ID = '312541359670-684gb79qnt6r044c69hfptonhdlnlqoi.apps.googleusercontent.com';
         const SPREADSHEET_ID = '{{ NEXT_PUBLIC_SPREADSHEET_ID }}';
         const RANGE = 'シート1!A:E';  // データが保存されている範囲
+        const REDIRECT_URI = 'https://r-calender2.vercel.app';  // ここにVercelのデプロイURLを入力
         let currentWeekStart = new Date();
         currentWeekStart.setHours(0, 0, 0, 0);
         currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay());
@@ -262,6 +263,7 @@
                 client_id: CLIENT_ID,
                 scope: "https://www.googleapis.com/auth/spreadsheets",
                 callback: '', // 後で定義します
+                redirect_uri: REDIRECT_URI  // ここにリダイレクトURIを設定
             });
             gisInited = true;
             maybeEnableButtons();
